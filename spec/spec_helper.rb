@@ -7,6 +7,6 @@ require 'bourne'
 require 'redis'
 
 Spec::Runner.configure do |config|
-  config.mock_with :mocha
+  # config.mock_with :mocha
   config.before { Redis.new.flushdb }
 end

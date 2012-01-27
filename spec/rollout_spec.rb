@@ -4,62 +4,76 @@ describe "Rollout" do
   before do
     @redis   = Redis.new
     @rollout = Rollout.new(@redis)
+    @user = double('user')
   end
 
   describe "groups" do
     before do
-      @rollout.define_group(:admin) { |user| true }
+      @rollout.define_group(:fivesonly) { |user| user.id == 5 }
     end
-
     it "should list the available groups" do
-      @rollout.groups.should include(:admin)
+      @rollout.groups.should include(:fivesonly)
     end
-  end
+    describe "when a feature is enabled for a group" do
+      before do
+        @rollout.activate_for_group(:chat, :fivesonly)
+      end
 
-  describe "when a group is activated" do
-    before do
-      @rollout.define_group(:fivesonly) { |user| user.id == 5 }
-      @rollout.activate_group(:chat, :fivesonly)
-    end
+      it "should be enabled for the group" do
+        @rollout.feature_active_for_group?(:chat, :fivesonly).should be_true
+      end
 
-    it "the feature is active for users for which the block evaluates to true" do
-      @rollout.should be_active(:chat, stub(:id => 5))
-    end
+      it "should not be enabled for other groups" do
+        @rollout.feature_active_for_group?(:chat, :users).should be_false
+      end
 
-    it "is not active for users for which the block evaluates to false" do
-      @rollout.should_not be_active(:chat, stub(:id => 1))
-    end
+      it "should not cause other features to be enabled" do
+        @rollout.feature_active_for_group?(:email, :fivesonly).should be_false
+      end
 
-    it "is not active if a group is found in Redis but not defined in Rollout" do
-      @rollout.activate_group(:chat, :fake)
-      @rollout.should_not be_active(:chat, stub(:id => 1))
-    end
-  end
+      it "should not be active for other groups" do
+        @rollout.feature_active_for_group?(:chat, :users).should be_false
+      end
 
-  describe "the default all group" do
-    before do
-      @rollout.activate_group(:chat, :all)
-    end
+      it "the feature is active for users for which the block evaluates to true" do
+        @rollout.should be_active(:chat, stub(:id => 5))
+      end
 
-    it "evaluates to true no matter what" do
-      @rollout.should be_active(:chat, stub(:id => 0))
-    end
-  end
+      it "is not active for users for which the block evaluates to false" do
+        @rollout.should_not be_active(:chat, stub(:id => 10))
+      end
 
-  describe "deactivating a group" do
-    before do
-      @rollout.define_group(:fivesonly) { |user| user.id == 5 }
-      @rollout.activate_group(:chat, :all)
-      @rollout.activate_group(:chat, :fivesonly)
-      @rollout.deactivate_group(:chat, :all)
+      it "is not active if a group is found in Redis but not defined in Rollout" do
+        @rollout.activate_for_group(:chat, :fake_group)
+        @rollout.should_not be_active(:chat, stub(:id => 10))
+      end
     end
 
-    it "deactivates the rules for that group" do
-      @rollout.should_not be_active(:chat, stub(:id => 10))
+    describe "the default all group" do
+      before do
+        @rollout.activate_group(:chat, :all)
+      end
+
+      it "evaluates to true no matter what" do
+        @rollout.should be_active(:chat, stub(:id => 0))
+      end
     end
 
-    it "leaves the other groups active" do
-      @rollout.should be_active(:chat, stub(:id => 5))
+    describe "deactivating a group" do
+      before do
+        @rollout.define_group(:fivesonly) { |user| user.id == 5 }
+        @rollout.activate_group(:chat, :all)
+        @rollout.activate_group(:chat, :fivesonly)
+        @rollout.deactivate_group(:chat, :all)
+      end
+
+      it "deactivates the rules for that group" do
+        @rollout.should_not be_active(:chat, stub(:id => 10))
+      end
+
+      it "leaves the other groups active" do
+        @rollout.should be_active(:chat, stub(:id => 5))
+      end
     end
   end
 
