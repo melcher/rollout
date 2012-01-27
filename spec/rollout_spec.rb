@@ -6,6 +6,16 @@ describe "Rollout" do
     @rollout = Rollout.new(@redis)
   end
 
+  describe "groups" do
+    before do
+      @rollout.define_group(:admin) { |user| true }
+    end
+
+    it "should list the available groups" do
+      @rollout.groups.should include(:admin)
+    end
+  end
+
   describe "when a group is activated" do
     before do
       @rollout.define_group(:fivesonly) { |user| user.id == 5 }

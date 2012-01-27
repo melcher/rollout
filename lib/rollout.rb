@@ -4,6 +4,10 @@ class Rollout
     @groups = {"all" => lambda { |user| true }}
   end
 
+  def groups
+    @groups.keys.collect(&:to_sym)
+  end
+
   def activate_group(feature, group)
     @redis.sadd(group_key(feature), group)
   end
