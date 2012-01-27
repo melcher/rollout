@@ -12,9 +12,13 @@ class Rollout
     @redis.sadd(group_key(feature), group)
   end
 
+  alias :activate_for_group :activate_group
+
   def deactivate_group(feature, group)
     @redis.srem(group_key(feature), group)
   end
+
+  alias :deactivate_for_group :deactivate_group
 
   def deactivate_all(feature)
     @redis.del(group_key(feature))
@@ -32,6 +36,10 @@ class Rollout
 
   def define_group(group, &block)
     @groups[group.to_s] = block
+  end
+
+  def feature_active_for_group?(feature, group)
+    @groups.key?(group.to_s) && @redis.sismember(group_key(feature), group.to_s)
   end
 
   def active?(feature, user)
@@ -66,7 +74,11 @@ class Rollout
     end
 
     def user_in_active_group?(feature, user)
-      (@redis.smembers(group_key(feature)) || []).any? { |group| @groups.key?(group) && @groups[group].call(user) }
+      (groups_for_feature(feature) || []).any? { |group| @groups.key?(group) && @groups[group].call(user) }
+    end
+
+    def groups_for_feature(feature)
+      @redis.smembers(group_key(feature))
     end
 
     def user_active?(feature, user)
